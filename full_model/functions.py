@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 import doubleml as dml
 
+np.random.seed(0)
+
 def split_data(df, num_splits):
 
     df_nothing = df[df["welcome_discount"] == 0].copy()
@@ -21,7 +23,7 @@ def split_data(df, num_splits):
     
     return dict(sorted(split_dfs.items()))
 
-def data_setup(df, num_splits, log):
+def data_setup(df, num_splits, log, cols_to_drop_manual):
 
     # Keep only after 2021
     df = df[df["first_data_year"] >= 2021]
@@ -31,7 +33,7 @@ def data_setup(df, num_splits, log):
     assert len(nulls) == 0, f"There are null columns in the data!! {nulls}"
 
     # Drop columns that won't be used ever (apart from EDA)
-    cols_to_drop = ["policy_nr_hashed", "last_data_year", "first_data_year", "control_group", 'count', 'first_datapoint_year', 'last_datapoint_year']
+    cols_to_drop = ["policy_nr_hashed", "last_data_year", "first_data_year", "control_group", 'count', 'first_datapoint_year', 'last_datapoint_year'] + cols_to_drop_manual
     df = df[[col for col in df.columns.to_list() if (col not in cols_to_drop)]]
 
     # Set data type and create dummies
@@ -80,9 +82,9 @@ def medae_prob(y_true, y_pred_probs):
 mae_prob_scorer = make_scorer(mae_prob, needs_proba=True)
 medae_prob_scorer = make_scorer(medae_prob, needs_proba=True)
 
-def run_first_stage_general(df, cols_to_drop_manual, target, iters, log, score):
+def run_first_stage_general(df, target, iters, log, score):
     # Data prep
-    cols_to_drop = ["churn", "policy_nr_hashed", "last_data_year", "first_data_year", "control_group", 'welcome_discount', 'count', 'first_datapoint_year', 'last_datapoint_year'] + cols_to_drop_manual
+    cols_to_drop = ["churn", 'welcome_discount']
     selected_columns = [col for col in df.columns if not any(col.startswith(prefix) for prefix in cols_to_drop)]
 
     X = df[selected_columns]
@@ -109,6 +111,7 @@ def run_first_stage_general(df, cols_to_drop_manual, target, iters, log, score):
             objective='binary',
             force_row_wise=True,
             verbosity=-1,
+            random_state=0,
             # is_unbalance=True,
             **params
         )
@@ -118,7 +121,7 @@ def run_first_stage_general(df, cols_to_drop_manual, target, iters, log, score):
     n_iter = iters
     trials = Trials()
 
-    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=n_iter, trials=trials)
+    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=n_iter, trials=trials, rstate=np.random.default_rng(seed=0))
 
     if log:
         print("Best Score is: ", -trials.best_trial['result']['loss'])
@@ -144,6 +147,7 @@ def run_first_stage_general(df, cols_to_drop_manual, target, iters, log, score):
         objective='binary',
         force_row_wise=True,
         verbosity=-1,
+        random_state=0,
         # is_unbalance=True,
         **best_params
     )
@@ -169,7 +173,7 @@ def perform_single_doubleml(df, ml_y, ml_d):
 def global_run(df, splits, cols_to_drop_manual, iters, log, intermediary_scores):
 
     # Get data splits
-    splits = data_setup(df, splits, log)
+    splits = data_setup(df, splits, log, cols_to_drop_manual)
 
     # Run first stage
     first_stage_1 = {}
@@ -183,8 +187,8 @@ def global_run(df, splits, cols_to_drop_manual, iters, log, intermediary_scores)
         v["welcome_discount"] = np.ceil(v["welcome_discount"]).astype(int)
 
         # Run first stages
-        first_stage_1_temp = run_first_stage_general(v, cols_to_drop_manual, 'churn', iters, log, intermediary_scores)
-        first_stage_2_temp = run_first_stage_general(v, cols_to_drop_manual, 'welcome_discount', iters, log, intermediary_scores)
+        first_stage_1_temp = run_first_stage_general(v, 'churn', iters, log, intermediary_scores)
+        first_stage_2_temp = run_first_stage_general(v, 'welcome_discount', iters, log, intermediary_scores)
 
         # Save everything
         first_stage_1[k] = first_stage_1_temp
@@ -195,7 +199,7 @@ def global_run(df, splits, cols_to_drop_manual, iters, log, intermediary_scores)
         # Increase i
         i += 1
 
-    return first_stage_1, first_stage_2, double_mls
+    return first_stage_1, first_stage_2, double_mls, splits
 
 
 if __name__ == "__main__":
