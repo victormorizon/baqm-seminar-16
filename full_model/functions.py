@@ -1,13 +1,15 @@
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-import sklearn
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, average_precision_score, make_scorer, mean_absolute_error, median_absolute_error
 from sklearn.model_selection import cross_val_score
 import matplotlib.pyplot as plt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 import doubleml as dml
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
 
 np.random.seed(0)
 
