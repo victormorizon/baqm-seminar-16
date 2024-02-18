@@ -1,15 +1,12 @@
 import pandas as pd
 import numpy as np
 import lightgbm as lgb
-from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import f1_score, confusion_matrix, roc_auc_score, ConfusionMatrixDisplay, average_precision_score, make_scorer, mean_absolute_error, median_absolute_error
 from sklearn.model_selection import cross_val_score
 import matplotlib.pyplot as plt
 from hyperopt import fmin, tpe, hp, STATUS_OK, Trials
 import doubleml as dml
-from sklearn.preprocessing import StandardScaler
-from sklearn.pipeline import make_pipeline
 
 np.random.seed(0)
 
@@ -27,15 +24,12 @@ def split_data(df, num_splits):
 
 def data_setup(df, num_splits, log, cols_to_drop_manual):
 
-    # Keep only after 2021
-    df = df[df["first_data_year"] >= 2021]
-
     # Check if the data contains any null columns
     nulls = [col for col, val in df.isnull().any().to_dict().items() if val == True]
     assert len(nulls) == 0, f"There are null columns in the data!! {nulls}"
 
     # Drop columns that won't be used ever (apart from EDA)
-    cols_to_drop = ["policy_nr_hashed", "last_data_year", "first_data_year", "control_group", 'count', 'first_datapoint_year', 'last_datapoint_year'] + cols_to_drop_manual
+    cols_to_drop = ["last_data_year", "first_data_year", "control_group", 'count', 'first_datapoint_year', 'last_datapoint_year'] + cols_to_drop_manual
     df = df[[col for col in df.columns.to_list() if (col not in cols_to_drop)]]
 
     # Set data type and create dummies
