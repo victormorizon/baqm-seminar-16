@@ -78,9 +78,12 @@ def medae_prob(y_true, y_pred_probs):
 mae_prob_scorer = make_scorer(mae_prob, needs_proba=True)
 medae_prob_scorer = make_scorer(medae_prob, needs_proba=True)
 
-def run_first_stage_general(df, target, iters, log, score):
+def run_first_stage_general(df, target, iters, log, score, include_treatment):
     # Data prep
-    cols_to_drop = ["churn", 'welcome_discount']
+    if include_treatment:
+        cols_to_drop = ["churn"]
+    else:
+        cols_to_drop = ["churn", 'welcome_discount']
     selected_columns = [col for col in df.columns if not any(col.startswith(prefix) for prefix in cols_to_drop)]
 
     X = df[selected_columns]
@@ -183,8 +186,8 @@ def global_run(df, splits, cols_to_drop_manual, iters, log, intermediary_scores)
         v["welcome_discount"] = np.ceil(v["welcome_discount"]).astype(int)
 
         # Run first stages
-        first_stage_1_temp = run_first_stage_general(v, 'churn', iters, log, intermediary_scores)
-        first_stage_2_temp = run_first_stage_general(v, 'welcome_discount', iters, log, intermediary_scores)
+        first_stage_1_temp = run_first_stage_general(v, 'churn', iters, log, intermediary_scores, True)
+        first_stage_2_temp = run_first_stage_general(v, 'welcome_discount', iters, log, intermediary_scores, False)
 
         # Save everything
         first_stage_1[k] = first_stage_1_temp
